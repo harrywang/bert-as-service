@@ -1,3 +1,27 @@
+## Setup
+
+- pin TF to 1.14.0
+- download Chinese pre-train model https://storage.googleapis.com/bert_models/2018_11_03/chinese_L-12_H-768_A-12.zip and put in /tmp/chinese_L-12_H-768_A-12
+
+
+```
+$ python3 -m venv venv
+$ source venv/bin/activate
+$ pip install -r server/requirements.txt
+$ pip install -r requirements.txt
+$ pip install bert-serving-server  # server
+$ pip install bert-serving-client  # client, independent of `bert-serving-server`
+$ bert-serving-start -model_dir /Users/harrywang/sandbox/bert-as-service/tmp/chinese_L-12_H-768_A-12 -num_worker=1
+```
+
+follow the instructions here: https://github.com/hanxiao/bert-as-service#building-a-qa-semantic-search-engine-in-3-minutes
+
+
+while the server is running, run the following: `jupyter notebook` and open `test.ipynb`
+
+
+
+
 <h1 align="center">bert-as-service</h1>
 
 <p align="center">Using BERT model as a sentence encoding service, i.e. mapping a variable-length sentence to a fixed-length vector.</p>
@@ -41,7 +65,7 @@
   <a href="#speech_balloon-faq">FAQ</a> •
   <a href="#zap-benchmark">Benchmark</a> •
   <a href="https://hanxiao.github.io/2019/01/02/Serving-Google-BERT-in-Production-using-Tensorflow-and-ZeroMQ/" target="_blank">Blog</a>
-  
+
 </p>
 
 <p align="center">
@@ -72,7 +96,7 @@
 
 **Sentence Encoding/Embedding** is a upstream task required in many NLP applications, e.g. sentiment analysis, text classification. The goal is to represent a variable length sentence into a fixed length vector, e.g. `hello world` to `[0.1, 0.3, 0.9]`. Each element of the vector should "encode" some semantics of the original sentence.
 
-**Finally, `bert-as-service`** uses BERT as a sentence encoder and hosts it as a service via ZeroMQ, allowing you to map sentences into fixed-length representations in just two lines of code. 
+**Finally, `bert-as-service`** uses BERT as a sentence encoder and hosts it as a service via ZeroMQ, allowing you to map sentences into fixed-length representations in just two lines of code.
 
 <h2 align="center">Highlights</h2>
 
@@ -124,7 +148,7 @@ Download a model listed below, then uncompress the zip file into some folder, sa
 #### 2. Start the BERT service
 After installing the server, you should be able to use `bert-serving-start` CLI as follows:
 ```bash
-bert-serving-start -model_dir /tmp/english_L-12_H-768_A-12/ -num_worker=4 
+bert-serving-start -model_dir /tmp/english_L-12_H-768_A-12/ -num_worker=4
 ```
 This will start a service with four workers, meaning that it can handle up to four **concurrent** requests. More concurrent requests will be queued in a load balancer. Details can be found in our [FAQ](#q-what-is-the-parallel-processing-model-behind-the-scene) and [the benchmark on number of clients](#speed-wrt-num_client).
 
@@ -227,7 +251,7 @@ bert-serving-benchmark --help
 | `xla` | bool | False | enable [XLA compiler](https://www.tensorflow.org/xla/jit) for graph optimization (*experimental!*) |
 | `fp16` | bool | False | use float16 precision (experimental) |
 | `device_map` | list | `[]` | specify the list of GPU device ids that will be used (id starts from 0)|
-| `show_tokens_to_client` | bool | False | sending tokenization results to client | 
+| `show_tokens_to_client` | bool | False | sending tokenization results to client |
 
 ### Client API
 
@@ -299,14 +323,14 @@ This gives `33 questions loaded, avg. len of 9`. So looks like we have enough qu
 ```bash
 bert-serving-start -num_worker=1 -model_dir=/data/cips/data/lab/data/model/uncased_L-12_H-768_A-12
 ```
- 
+
 Next, we need to encode our questions into vectors:
 ```python
 bc = BertClient(port=4000, port_out=4001)
 doc_vecs = bc.encode(questions)
 ```
 
-Finally, we are ready to receive new query and perform a simple "fuzzy" search against the existing questions. To do that, every time a new query is coming, we encode it as a vector and compute its dot product with `doc_vecs`; sort the result descendingly; and return the top-k similar questions as follows: 
+Finally, we are ready to receive new query and perform a simple "fuzzy" search against the existing questions. To do that, every time a new query is coming, we encode it as a vector and compute its dot product with `doc_vecs`; sort the result descendingly; and return the top-k similar questions as follows:
 ```python
 while True:
     query = input('your question: ')
@@ -389,7 +413,7 @@ vec[0][4]  # [1, 1, 768], word embedding for padding symbol
 vec[0][25]  # error, out of index!
 ```
 
-Note that no matter how long your original sequence is, the service will always return a `[max_seq_len, 768]` matrix for every sequence. When using slice index to get the word embedding, beware of the special tokens padded to the sequence, i.e. `[CLS]`, `[SEP]`, `0_PAD`. 
+Note that no matter how long your original sequence is, the service will always return a `[max_seq_len, 768]` matrix for every sequence. When using slice index to get the word embedding, beware of the special tokens padded to the sequence, i.e. `[CLS]`, `[SEP]`, `0_PAD`.
 
 ### Using your own tokenizer
 
@@ -408,10 +432,10 @@ This gives `[2, 25, 768]` tensor where the first `[1, 25, 768]` corresponds to t
 Note that there is no need to start a separate server for handling tokenized/untokenized sentences. The server can tell and handle both cases automatically.
 
 Sometimes you want to know explicitly the tokenization performed on the server side to have better understanding of the embedding result. One such case is asking word embedding from the server (with `-pooling_strategy NONE`), one wants to tell which word is tokenized and which is unrecognized. You can get such information with the following steps:
- 
+
  1. enabling `-show_tokens_to_client` on the server side;
  2. calling the server via `encode(..., show_tokens=True)`.
- 
+
 For example, a basic usage like
 
 ```python
@@ -427,7 +451,7 @@ returns a tuple, where the first element is the embedding and the second is the 
        [[ 0.        , -0.        ,  0.        , ...,  0.        , 0.        ,  0.        ],
         [ 0.6293478 , -0.4088499 ,  0.6022662 , ...,  0.41740108, 1.214456  ,  1.2532915 ],
         ..., 0.        ,  0.        ]]], dtype=float32),
-         
+
           [['[CLS]', 'hello', 'world', '!', '[SEP]'], ['[CLS]', 'this', '##is', 'it', '[SEP]']])
 ```
 
@@ -445,7 +469,7 @@ returns:
        [[ 0.        ,  0.        ,  0.        , ...,  0.        ,  -0.        ,  0.        ],
         [ 0.39262453,  0.3782491 ,  0.27096173, ...,  0.7122045 ,  -0.9874849 ,  0.9318679 ],
         ..., -0.        ,  0.        ]]], dtype=float32),
-         
+
          [['[CLS]', 'hello', '[UNK]', '[SEP]'], ['[CLS]', '[UNK]', 'it', '[SEP]']])
 ```
 
@@ -458,7 +482,7 @@ Extremely curious readers may notice that the first row in the above example is 
 
 ### Using `BertClient` with `tf.data` API
 
-> The complete example can [be found example4.py](example/example4.py). There is also [an example in Keras](https://github.com/hanxiao/bert-as-service/issues/29#issuecomment-442362241). 
+> The complete example can [be found example4.py](example/example4.py). There is also [an example in Keras](https://github.com/hanxiao/bert-as-service/issues/29#issuecomment-442362241).
 
 The [`tf.data`](https://www.tensorflow.org/guide/datasets) API enables you to build complex input pipelines from simple, reusable pieces. One can also use `BertClient` to encode sentences on-the-fly and use the vectors in a downstream model. Here is an example:
 
@@ -525,7 +549,7 @@ The complete example can [be found example5.py](example/example5.py), in which a
 
 ### Saving and loading with TFRecord data
 
-> The complete example can [be found example6.py](example/example6.py). 
+> The complete example can [be found example6.py](example/example6.py).
 
 The TFRecord file format is a simple record-oriented binary format that many TensorFlow applications use for training data. You can also pre-encode all your sequences and store their encodings to a TFRecord file, then later load it to build a `tf.Dataset`. For example, to write encoding into a TFRecord file:
 
@@ -573,7 +597,7 @@ name_to_features = {
     "feature": tf.FixedLenFeature([max_seq_length * num_hidden], tf.float32),
     "label_ids": tf.FixedLenFeature([], tf.int64),
 }
-    
+
 def _decode_record(record, name_to_features):
     """Decodes a record to a TensorFlow example."""
     example = tf.parse_single_example(record, name_to_features)
@@ -607,7 +631,7 @@ for j in bc.encode_async(text_gen(), max_num_batch=10):
 The encoded result is routed to the client according to its identity. If you have multiple clients with same identity, then they all receive the results! You can use this *multicast* feature to do some cool things, e.g. training multiple different models (some using `scikit-learn` some using `tensorflow`) in multiple separated processes while only call `BertServer` once. In the example below, `bc` and its two clones will all receive encoded vector.
 
 ```python
-# clone a client by reusing the identity 
+# clone a client by reusing the identity
 def client_clone(id, idx):
     bc = BertClient(identity=id)
     for j in bc.listen():
@@ -707,7 +731,7 @@ args = get_args_parser().parse_args(['-model_dir', 'YOUR_MODEL_PATH_HERE',
                                      '-cpu'])
 server = BertServer(args)
 server.start()
-``` 
+```
 
 Note that it's basically mirroring the arg-parsing behavior in CLI, so everything in that `.parse_args([])` list should be string, e.g. `['-port', '5555']` not `['-port', 5555]`.
 
@@ -738,7 +762,7 @@ The design philosophy and technical details can be found [in my blog post](https
 **A:** [BERT code of this repo](server/bert_serving/server/bert/) is forked from the [original BERT repo](https://github.com/google-research/bert) with necessary modification, [especially in extract_features.py](server/bert_serving/server/bert/extract_features.py).
 
 ##### **Q:** How large is a sentence vector?
-In general, each sentence is translated to a 768-dimensional vector. Depending on the pretrained BERT you are using, `pooling_strategy` and `pooling_layer` the dimensions of the output vector could be different. 
+In general, each sentence is translated to a 768-dimensional vector. Depending on the pretrained BERT you are using, `pooling_strategy` and `pooling_layer` the dimensions of the output vector could be different.
 
 ##### **Q:** How do you get the fixed representation? Did you do pooling or something?
 
@@ -789,7 +813,7 @@ bert-serving-start -pooling_layer -4 -3 -2 -1 -model_dir /tmp/english_L-12_H-768
 
 <p align="center"><img src=".github/pool_max.png?raw=true"></p>
 
-Intuitively, `pooling_layer=-1` is close to the training output, so it may be biased to the training targets. If you don't fine tune the model, then this could lead to a bad representation. `pooling_layer=-12` is close to the word embedding, may preserve the very original word information (with no fancy self-attention etc.). On the other hand, you may achieve the very same performance by simply using a word-embedding only. That said, anything in-between [-1, -12] is then a trade-off. 
+Intuitively, `pooling_layer=-1` is close to the training output, so it may be biased to the training targets. If you don't fine tune the model, then this could lead to a bad representation. `pooling_layer=-12` is close to the word embedding, may preserve the very original word information (with no fancy self-attention etc.). On the other hand, you may achieve the very same performance by simply using a word-embedding only. That said, anything in-between [-1, -12] is then a trade-off.
 
 ##### **Q:** Could I use other pooling techniques?
 
@@ -831,7 +855,7 @@ To reproduce the results, please run `bert-serving-benchmark`.
 <img src=".github/bert-parallel-pipeline.png?raw=true" width="600">
 
 ##### **Q:** Why does the server need two ports?
-One port is for pushing text data into the server, the other port is for publishing the encoded result to the client(s). In this way, we get rid of back-chatter, meaning that at every level recipients never talk back to senders. The overall message flow is strictly one-way, as depicted in the above figure. Killing back-chatter is essential to real scalability, allowing us to use `BertClient` in an asynchronous way. 
+One port is for pushing text data into the server, the other port is for publishing the encoded result to the client(s). In this way, we get rid of back-chatter, meaning that at every level recipients never talk back to senders. The overall message flow is strictly one-way, as depicted in the above figure. Killing back-chatter is essential to real scalability, allowing us to use `BertClient` in an asynchronous way.
 
 ##### **Q:** Do I need Tensorflow on the client side?
 
@@ -844,7 +868,7 @@ One port is for pushing text data into the server, the other port is for publish
 ##### **Q:** Can I use my own fine-tuned BERT model?
 
 **A:** Yes. In fact, this is suggested. Make sure you have the following three items in `model_dir`:
-                             
+
 - A TensorFlow checkpoint (`bert_model.ckpt`) containing the pre-trained weights (which is actually 3 files).
 - A vocab file (`vocab.txt`) to map WordPiece to word id.
 - A config file (`bert_config.json`) which specifies the hyperparameters of the model.
@@ -1007,7 +1031,7 @@ Performance-wise, longer sequences means slower speed and  more chance of OOM, a
 
 #### Speed wrt. `client_batch_size`
 
-`client_batch_size` is the number of sequences from a client when invoking `encode()`. For performance reason, please consider encoding sequences in batch rather than encoding them one by one. 
+`client_batch_size` is the number of sequences from a client when invoking `encode()`. For performance reason, please consider encoding sequences in batch rather than encoding them one by one.
 
 For example, do:
 ```python
